@@ -42,13 +42,22 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):
     
     return all_sprites
 
+def get_block(size):
+    path = join("assets", "Terrain", "Terrain.png")
+    image = pygame.image.load(path).convert_alpha()
+    surface = pygame.Surface((size, size), pygame.SRCALPHA, 32)
+    rect = pygame.Rect(96, 0, size, size) # 96 pixels loads the specific block with grass on it (1st row, 2nd column)
+    surface.blit(image, (0, 0), rect)
+    return pygame.transform.scale2x(surface)
+
 class Player(pygame.sprite.Sprite):         # pygame.sprite.Sprite allows for easy collision perfect detection
     COLOR = (255, 0, 0)
-    GRAVITY = 0
+    GRAVITY = 1
     SPRITES = load_sprite_sheets("MainCharacters", "MaskDude", 32, 32, True)    # Spawn player sprite!
     ANIMATION_DELAY = 3
 
     def __init__(self, x, y, width, height):
+        super().__init__()
         self.rect = pygame.Rect(x, y, width, height)
         self.x_vel = 0
         self.y_vel = 0
@@ -81,6 +90,15 @@ class Player(pygame.sprite.Sprite):         # pygame.sprite.Sprite allows for ea
         self.fall_count += 1
         self.update_sprite()
 
+    def landed(self):
+        self.fall_count = 0
+        self.y_vel = 0
+        self.jump_count = 0
+    
+    def hit_head(self):
+        self.count = 0
+        self.y_vel *= -1
+
     def update_sprite(self):
         sprite_sheet = "idle"
         if self.x_vel != 0:
@@ -93,13 +111,32 @@ class Player(pygame.sprite.Sprite):         # pygame.sprite.Sprite allows for ea
         self.animation_count += 1
         self.update()
 
-    def update():
+    def update(self):
         self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
         self.mask = pygame.mask.from_surface(self.sprite) # Allows for pixel perfect collision! If we dont do this, is will be stuck with rectangular hit boxes that are not true to animation
 
     def draw(self, win):
         # self.sprite = self.SPRITES["idle_" + self.direction][0]
         win.blit(self.sprite, (self.rect.x, self.rect.y))
+
+class Object(pygame.sprite.Sprite):
+    def __init__(self, x, y, width, height, name=None):
+        super().__init__()
+        self.rect = pygame.Rect(x, y, width, height)
+        self.image = pygame.Surface((width, height), pygame.SRCALPHA)
+        self.width = width
+        self.height = height
+        self.name = name
+    
+    def draw(self, win):
+        win.blit(self.image, (self.rect.x, self.rect.y))
+
+class Block(Object):
+    def __init__(self, x, y, size):
+        super().__init__(x, y, size, size)
+        block = get_block(size)
+        self.image.blit(block, (0, 0))
+        self.mask = pygame.mask.from_surface(self.image)
 
 # Create a backsplash for the background
 def get_background(name):
@@ -113,28 +150,52 @@ def get_background(name):
             tiles.append(pos)
     return tiles, image
 
-def draw(window, background, bg_image, player):
+def draw(window, background, bg_image, player, objects):
     for tile in background:
         window.blit(bg_image, tile)
+
+    for obj in objects:
+        obj.draw(window)
 
     player.draw(window)
     pygame.display.update()
 
-def handle_move(player):
-    keys = pygame.key.get_pressed()
+def handle_vertical_collision(player, objects, dy):
+    collided_objects = []
+    for obj in objects:
+        if pygame.sprite.collide_mask(player, obj):
+            if dy > 0:
+                player.rect.bottom = obj.rect.top       # Align the feet of character with top of object
+                player.landed()
+            elif dy < 0:
+                player.rect.top = obj.rect.bottom       # Align the head of character with the bottom of the object
+                player.hit_head()
+        
+        collided_objects.append(obj)
 
+    return collided_objects
+
+def handle_move(player, objects):
+    keys = pygame.key.get_pressed()
     player.x_vel = 0
     if keys[pygame.K_LEFT]:
         player.move_left(PLAYER_VEL)
     if keys[pygame.K_RIGHT]:
         player.move_right(PLAYER_VEL)
+    
+    handle_vertical_collision(player, objects, player.y_vel)
 
 def main(window):
     # Event loops
     clock = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
 
+    block_size = 96
+
     player = Player(100, 100, 50, 50)
+    floor = [Block(i * block_size, HEIGHT - block_size, block_size)
+             for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]  # Add blocks to flooring depending on sizing
+    
     run = True
     while run:
         clock.tick(FPS) # Ensures the while-loop only runs 60 FPS per tick
@@ -143,8 +204,8 @@ def main(window):
                 run = False
                 break
         player.loop(FPS)
-        handle_move(player)
-        draw(window, background, bg_image, player)
+        handle_move(player, floor)
+        draw(window, background, bg_image, player, floor)
     
     pygame.quit()
     quit()
