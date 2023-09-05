@@ -1,7 +1,7 @@
 # platformer_game
 Brushing up on Python by following a tutorial: https://www.youtube.com/watch?v=6gLeplbqtqg
 
-## Setup python venv environment ⚙
+## Setup pygame in a python venv environment ⚙
 ```shell
     ## Setup on Windows
     # Windows
@@ -19,3 +19,6 @@ Brushing up on Python by following a tutorial: https://www.youtube.com/watch?v=6
 
     pip install pygame
 ```
+- The project can be expanded upon, and the code can (must) be cleaned =)
+
+![Platformer](img/Platformer.png)
