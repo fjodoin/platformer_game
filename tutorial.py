@@ -130,9 +130,9 @@ class Player(pygame.sprite.Sprite):         # pygame.sprite.Sprite allows for ea
         self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
         self.mask = pygame.mask.from_surface(self.sprite) # Allows for pixel perfect collision! If we dont do this, is will be stuck with rectangular hit boxes that are not true to animation
 
-    def draw(self, win):
+    def draw(self, win, offset_x):
         # self.sprite = self.SPRITES["idle_" + self.direction][0]
-        win.blit(self.sprite, (self.rect.x, self.rect.y))
+        win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, name=None):
@@ -143,8 +143,8 @@ class Object(pygame.sprite.Sprite):
         self.height = height
         self.name = name
     
-    def draw(self, win):
-        win.blit(self.image, (self.rect.x, self.rect.y))
+    def draw(self, win, offset_x):
+        win.blit(self.image, (self.rect.x - offset_x, self.rect.y))
 
 class Block(Object):
     def __init__(self, x, y, size):
@@ -165,14 +165,14 @@ def get_background(name):
             tiles.append(pos)
     return tiles, image
 
-def draw(window, background, bg_image, player, objects):
+def draw(window, background, bg_image, player, objects, offset_x):
     for tile in background:
         window.blit(bg_image, tile)
 
     for obj in objects:
-        obj.draw(window)
+        obj.draw(window, offset_x)
 
-    player.draw(window)
+    player.draw(window, offset_x)
     pygame.display.update()
 
 def handle_vertical_collision(player, objects, dy):
@@ -211,6 +211,9 @@ def main(window):
     floor = [Block(i * block_size, HEIGHT - block_size, block_size)
              for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]  # Add blocks to flooring depending on sizing
     
+    offset_x = 0    # Value to offset all things drawn onto game board: Background Scrolling
+    scroll_area_width = 200
+
     run = True
     while run:
         clock.tick(FPS) # Ensures the while-loop only runs 60 FPS per tick
@@ -224,7 +227,12 @@ def main(window):
 
         player.loop(FPS)
         handle_move(player, floor)
-        draw(window, background, bg_image, player, floor)
+        draw(window, background, bg_image, player, floor, offset_x)
+
+        if (
+            (player.rect.right - offset_x >= WIDTH - scroll_area_width) and (player.x_vel > 0)) or (
+                ((player.rect.left - offset_x <= scroll_area_width) and (player.x_vel < 0))):    # Check if moving to the right
+            offset_x += player.x_vel
     
     pygame.quit()
     quit()
